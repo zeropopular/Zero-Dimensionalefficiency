@@ -1,0 +1,314 @@
+BIM+ Vsual C# .Net Code
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Xml.Linq;
+namespace RevitCreateGroupAddins.Entities
+{
+ public class xmlEntity
+ {
+ string _ActivityName;
+ public string ActivityName
+ {
+ get { return _ActivityName; }
+ set { _ActivityName = value; }
+ }
+ string _FloorName;
+ public string FloorName
+ {
+ get { return _FloorName; }
+ set { _FloorName = value; }
+ }
+ string _AreaName;
+ public string AreaName
+ {
+ get { return _AreaName; }
+ set { _AreaName = value; }
+ }
+ public static List<xmlEntity> GetXmlEntity()
+ {
+ List<xmlEntity> lstXmls = new List<xmlEntity>();
+ System.Configuration.Configuration config =
+Helper.MSProjectHelper.GetConfig();
+ string strLinkFilePath = Environment.GetFolderPath(
+Environment.SpecialFolder.ProgramFilesX86)+
+config.AppSettings.Settings["LinkFilePath"].Value;
+ XDocument xRoot = XDocument.Load(strLinkFilePath);
+ List<XElement> eles = xRoot.Descendants("Link").ToList();
+ foreach (var item in eles)
+ {
+ XElement xele = new XElement("Link");
+ lstXmls.Add(new xmlEntity()
+ {
+ ActivityName = item.Attribute("Activity").Value,
+ AreaName = item.Attribute("Area").Value,
+ FloorName = item.Attribute("Floor").Value
+ });
+ }
+ return lstXmls; 
+ }
+ public static void DeleteXmlEntities()
+ {
+ System.Configuration.Configuration config =
+Helper.MSProjectHelper.GetConfig();
+ string strLinkFilePath = Environment.GetFolderPath(
+Environment.SpecialFolder.ProgramFilesX86)+config.AppSettings.Settings["LinkFilePa
+th"].Value;
+ XDocument xRoot = XDocument.Load(strLinkFilePath);
+ xRoot.Descendants("Link").Remove();
+ xRoot.Save(strLinkFilePath);
+ }
+ public static void DeleteXmlEntity(xmlEntity entity)
+ {
+ System.Configuration.Configuration config =
+Helper.MSProjectHelper.GetConfig();
+ string strLinkFilePath = Environment.GetFolderPath(
+Environment.SpecialFolder.ProgramFilesX86)+config.AppSettings.Settings["LinkFilePa
+th"].Value;
+ XDocument xRoot = XDocument.Load(strLinkFilePath);
+ List<XElement> eles = xRoot.Descendants("Link").ToList();
+ XElement cELe = eles.Where(c => c.Attribute("Activity").Value ==
+entity.ActivityName).FirstOrDefault();
+ if (cELe != null)
+ {
+ cELe.Remove();
+ //eles.Remove(cELe);
+ xRoot.Save(strLinkFilePath);
+ }
+ }
+ public static void InsertXmlEntities(xmlEntity currententity)
+ {
+ System.Configuration.Configuration config =
+Helper.MSProjectHelper.GetConfig();
+ string strLinkFilePath = Environment.GetFolderPath(
+Environment.SpecialFolder.ProgramFilesX86)+config.AppSettings.Settings["LinkFilePa
+th"].Value;
+ XDocument xRoot = XDocument.Load(strLinkFilePath);
+ XElement eleroot = xRoot.Descendants("Links").FirstOrDefault();
+ XElement ele = new XElement("Link");
+ XAttribute attActivityName = new XAttribute("Activity",
+currententity.ActivityName);
+ XAttribute AreaName = new XAttribute("Area", currententity.AreaName);
+ XAttribute FloorName = new XAttribute("Floor",
+currententity.FloorName); 
+ ele.Add(attActivityName, AreaName, FloorName);
+ eleroot.Add(ele);
+ xRoot.Save(strLinkFilePath);
+ }
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+namespace RevitCreateGroupAddins.Entities
+{
+ public class RFIDOutputEntity
+ {
+ public int Serial { get; set; }
+ public string DataFile { get; set; }
+ public string RSSI { get; set; }
+ public DateTime ReaderDate { get; set; }
+ public int RFIDTagID { get; set; }
+ public int TabletPCID { get; set; }
+ }
+}
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+namespace RevitCreateGroupAddins.Entities
+{
+ public class CustomView
+ {
+ string _Name;
+ public string Name
+ {
+ get { return _Name; }
+ set { _Name = value; }
+ }
+ Autodesk.Revit.DB.View _CurrentView;
+ public Autodesk.Revit.DB.View CurrentView
+ {
+ get { return _CurrentView; }
+ set { _CurrentView = value; }
+ }
+ List<CustomElement> _lstElements = new List<CustomElement>();
+ public List<CustomElement> LstElements 
+ {
+ get { return _lstElements; }
+ set { _lstElements = value; }
+ }
+ private double _z;
+ public double Z
+ {
+ get { return _z; }
+ set { _z = value; }
+ }
+ public Autodesk.Revit.DB.ElementId id { get; set; }
+}
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using Autodesk.Revit.UI;
+using Autodesk.Revit.DB;
+using Autodesk.Revit.DB.Architecture;
+using RevitCreateGroupAddins.Helper;
+namespace RevitCreateGroupAddins.Addins
+{
+
+[Autodesk.Revit.Attributes.Transaction(Autodesk.Revit.Attributes.TransactionMode.M
+anual)]
+
+[Autodesk.Revit.Attributes.Regeneration(Autodesk.Revit.Attributes.RegenerationOpti
+on.Manual)]
+ public class WalkThroughAddins : IExternalCommand
+ {
+ public Result Execute(
+ExternalCommandData commandData,
+ref string message,
+ElementSet elements)
+ {
+ UIApplication uiapp = commandData.Application;
+ UIDocument uidoc = uiapp.ActiveUIDocument;
+ Document doc = uidoc.Document;
+
+ ViewFamilyType vft
+ = new FilteredElementCollector(doc)
+ .OfClass(typeof(ViewFamilyType))
+ .Cast<ViewFamilyType>()
+ .FirstOrDefault<ViewFamilyType>(x =>
+ ViewFamily.Section == x.ViewFamily);
+ ViewSheetSets vs = doc.ViewSheetSets;
+ foreach (ViewSheetSet item in vs)
+ {
+ 
+}
+ FilteredElementCollector a
+ = new FilteredElementCollector(doc)
+ .OfClass(typeof(SpatialElement));
+ BoundingBoxXYZ sectionBox = null;
+ foreach (SpatialElement e in a)
+ {
+ Room room = e as Room;
+ if (null != room)
+ {
+ sectionBox = RevitHelper.ListRoomData(room);
+ }
+ }
+ using (Transaction tx = new Transaction(doc))
+ {
+ tx.Start("Create Wall Section View");
+ ViewSection.CreateSection(doc, vft.Id, sectionBox);
+ tx.Commit();
+ }
+ return Result.Succeeded;
+ }
+ }
+}
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+using System.Data.OleDb;
+using System.Data;
+namespace RevitCreateGroupAddins.Helpers
+{
+ public class HelperFunctions
+ {
+ private static HelperFunctions _HelperInstance;
+ public static HelperFunctions HelperInstance
+ {
+ get
+ {
+ if (_HelperInstance == null)
+ {
+ _HelperInstance = new HelperFunctions();
+ }
+ return _HelperInstance;
+ }
+ }
+ private string DBPath;
+ private string ConnectionString;
+ private string ActivityHafar; 
+
+ public OleDbConnection con;
+ private string mdbConnectionString;
+ private string mdbcon;
+ private HelperFunctions()
+ {
+ try
+ {
+ System.Configuration.Configuration config =
+Helper.MSProjectHelper.GetConfig();
+ DBPath = config.AppSettings.Settings["DataBasePath"].Value;
+ ConnectionString =
+config.AppSettings.Settings["ConnectionString"].Value;
+ mdbConnectionString = ConnectionString + "";
+ mdbcon = mdbConnectionString + DBPath;
+ }
+ catch (Exception)
+ {
+ throw;
+ }
+ }
+ #region Helper Functions
+ public void OpenDBConnection()
+ {
+ try
+ {
+
+ if (con != null)
+ {
+ if (con.State == ConnectionState.Open)
+ {
+ return;
+ }
+ }
+ con = new OleDbConnection(mdbcon);
+ con.Open();
+ }
+ catch (Exception)
+ {
+
+ // throw;
+ }
+ }
+ public void CLoseDBConnection()
+ {
+ try
+ {
+ if (con != null)
+ {
+ if (con.State == ConnectionState.Open)
+ {
+ con.Close();
+ con.Dispose();
+ } 
+
+ }
+ }
+ catch (Exception)
+ {
+ throw;
+ }
+ }
+ private DateTime ConvertStringToDateTime(string input, int monthPosition,
+int dayPosition)
+ {
+ try
+ {
+ string[] arr = input.Split('/');
+ DateTime dt = new DateTime(Convert.ToInt32(arr[2]),
+Convert.ToInt32(arr[monthPosition]), Convert.ToInt32(arr[dayPosition]));
+ return dt;
+ }
+ catch (Exception)
+ {
+ return new DateTime();
+ throw;
+ }
+ }
+ #endregion
+ }
+}
